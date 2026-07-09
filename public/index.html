@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>원/달러 환율봇</title>
+<style>
+  :root {
+    --bg: #f7f9fc;
+    --card: #ffffff;
+    --accent: #3b82f6;
+    --accent-light: #eaf2ff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --up: #ef4444;
+    --down: #2563eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .hero {
+    max-width: 720px;
+    margin: 60px auto;
+    padding: 0 20px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .hero h1 { color: var(--text); font-size: 1.6rem; }
+
+  #chat-toggle {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    font-size: 26px;
+    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.4);
+    cursor: pointer;
+    z-index: 1000;
+  }
+
+  #chat-popup {
+    position: fixed;
+    bottom: 100px;
+    right: 28px;
+    width: 380px;
+    max-height: 70vh;
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 1000;
+    border: 1px solid var(--border);
+  }
+  #chat-popup.open { display: flex; }
+
+  .chat-header {
+    background: var(--accent);
+    color: white;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+  }
+  .chat-header button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  .chat-body {
+    padding: 16px;
+    overflow-y: auto;
+    background: var(--bg);
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+
+  .section-title {
+    font-weight: 700;
+    color: var(--accent);
+    margin: 16px 0 8px;
+    font-size: 14px;
+  }
+  .section-title:first-child { margin-top: 0; }
+
+  .rate-card {
+    background: var(--accent-light);
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+  }
+  .rate-value { font-size: 1.7rem; font-weight: 800; color: var(--text); }
+  .rate-diff { font-weight: 600; margin-top: 4px; }
+  .rate-diff.up { color: var(--up); }
+  .rate-diff.down { color: var(--down); }
+
+  .trend-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 10px;
+    gap: 4px;
+  }
+  .trend-row div { text-align: center; flex: 1; }
+
+  .calc-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .calc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .calc-row input {
+    flex: 1;
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    outline: none;
+    color: var(--text);
+    background: var(--bg);
+  }
+  .calc-row input:focus {
+    border-color: var(--accent);
+    background: white;
+  }
+  .calc-row span {
+    font-weight: 700;
+    color: var(--muted);
+    width: 42px;
+  }
+  .calc-eq {
+    text-align: center;
+    color: var(--muted);
+    margin: 6px 0;
+    font-weight: 700;
+  }
+  .calc-note {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .news-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .news-item .meta {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .summary-box {
+    background: var(--card);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+
+  .events-box {
+    background: #fff7e6;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+  }
+
+  .disclaimer {
+    margin-top: 14px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .loading { text-align: center; color: var(--muted); padding: 30px 0; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>원/달러 환율봇</h1>
+  <p>오른쪽 하단 💬 버튼을 눌러 오늘의 환율과 관련 해외 뉴스 요약을 확인하세요.</p>
+</div>
+
+<button id="chat-toggle">💬</button>
+
+<div id="chat-popup">
+  <div class="chat-header">
+    <span>원/달러 환율봇</span>
+    <button id="chat-close">✕</button>
+  </div>
+  <div class="chat-body" id="chat-body">
+    <div class="loading">불러오는 중...</div>
+  </div>
+</div>
+
+<script>
+const toggleBtn = document.getElementById('chat-toggle');
+const closeBtn = document.getElementById('chat-close');
+const popup = document.getElementById('chat-popup');
+const body = document.getElementById('chat-body');
+
+let loaded = false;
+
+toggleBtn.addEventListener('click', () => {
+  popup.classList.toggle('open');
+  if (popup.classList.contains('open') && !loaded) {
+    loadReport();
+  }
+});
+closeBtn.addEventListener('click', () => popup.classList.remove('open'));
+
+function fmtDate(yyyymmdd) {
+  return `${yyyymmdd.slice(0,4)}.${yyyymmdd.slice(4,6)}.${yyyymmdd.slice(6,8)}`;
+}
+
+async function loadReport() {
+  try {
+    const res = await fetch('/api/report');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    render(data);
+    loaded = true;
+  } catch (err) {
+    body.innerHTML = `<div class="loading">데이터를 불러오지 못했습니다.<br>${err.message}</div>`;
+  }
+}
+
+function render(data) {
+  const { rate, news, headlines } = data;
+  const isUp = rate.diff > 0;
+  const diffSign = isUp ? '+' : '';
+
+  const trendHtml = rate.dailyRates.map(r =>
+    `<div>${fmtDate(r.date).slice(5)}<br>${r.rate.toLocaleString()}</div>`
+  ).join('');
+
+  const newsHtml = news.items.map(n =>
+    `<div class="news-item">
+      <strong>${n.titleKo}</strong>
+      <div>${n.bodyKo}</div>
+      <div class="meta">${n.source} · ${n.date}</div>
+    </div>`
+  ).join('');
+
+  const eventsHtml = news.upcomingEvents.map(e => `<div>· ${e}</div>`).join('');
+
+  body.innerHTML = `
+    <div class="section-title">오늘의 원/달러 환율</div>
+    <div class="rate-card">
+      <div class="rate-value">${rate.todayRate.toLocaleString()}원</div>
+      <div class="rate-diff ${isUp ? 'up' : 'down'}">
+        ${diffSign}${rate.diff.toLocaleString()}원 (${diffSign}${rate.diffPercent}%)
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">
+        ${fmtDate(rate.today)} 매매기준율 · 1주일 전(${fmtDate(rate.lastWeek)}) ${rate.lastWeekRate.toLocaleString()}원 대비
+      </div>
+      <div class="trend-row">${trendHtml}</div>
+    </div>
+
+    <div class="section-title">환율 계산기</div>
+    <div class="calc-box">
+      <div class="calc-row">
+        <input type="text" inputmode="decimal" id="calc-usd" placeholder="0" />
+        <span>USD</span>
+      </div>
+      <div class="calc-eq">↕</div>
+      <div class="calc-row">
+        <input type="text" inputmode="decimal" id="calc-krw" placeholder="0" />
+        <span>KRW</span>
+      </div>
+      <div class="calc-note">1 USD = ${rate.todayRate.toLocaleString()}원 (오늘 매매기준율 기준)</div>
+    </div>
+
+    <div class="section-title">관련 해외 뉴스 요약 (번역)</div>
+    ${newsHtml}
+
+    <div class="section-title">종합 분석</div>
+    <div class="summary-box"><strong>톤:</strong> ${news.toneSummary}</div>
+    <div class="summary-box">${news.connectionAnalysis}</div>
+    <div class="events-box">
+      <strong>다가올 이벤트</strong><br>
+      ${eventsHtml}
+    </div>
+
+    <div class="disclaimer">
+      이 내용은 투자 자문이 아니며 참고용 정보입니다.<br>
+      뉴스 번역·분석 기준일: ${news.generatedAt}
+    </div>
+  `;
+
+  setupCalculator(rate.todayRate);
+}
+
+function setupCalculator(todayRate) {
+  const usdInput = document.getElementById('calc-usd');
+  const krwInput = document.getElementById('calc-krw');
+
+  usdInput.addEventListener('input', () => {
+    const usd = parseFloat(usdInput.value.replace(/,/g, ''));
+    krwInput.value = Number.isFinite(usd) ? Math.round(usd * todayRate).toLocaleString() : '';
+  });
+
+  krwInput.addEventListener('input', () => {
+    const krw = parseFloat(krwInput.value.replace(/,/g, ''));
+    usdInput.value = Number.isFinite(krw) ? (krw / todayRate).toFixed(2) : '';
+  });
+}
+</script>
+
+</body>
+</html>
